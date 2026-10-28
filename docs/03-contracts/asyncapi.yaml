@@ -1,0 +1,545 @@
+asyncapi: 2.6.0
+id: urn:journey:booking:v1
+info:
+  title: Сквозной билет — команды и события
+  version: 1.0.0
+  description: >-
+    Точка зрения Booking: publish отправляет команды, subscribe получает события. Повторная доставка
+    допустима; operationId не меняется при повторе.
+defaultContentType: application/json
+servers:
+  local:
+    url: localhost:5672
+    protocol: amqp
+    description: Локальный учебный RabbitMQ.
+tags:
+  - name: booking
+channels:
+  reservations.commands.v1:
+    description: Одна durable-очередь с именем канала. Default exchange RabbitMQ.
+    publish:
+      operationId: sendReservationCommand
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ReserveLeg'
+          - $ref: '#/components/messages/CancelLeg'
+  reservations.events.v1:
+    description: Одна durable-очередь с именем канала. Default exchange RabbitMQ.
+    subscribe:
+      operationId: receiveReservationEvent
+      message:
+        oneOf:
+          - $ref: '#/components/messages/LegReserved'
+          - $ref: '#/components/messages/LegReservationFailed'
+          - $ref: '#/components/messages/LegCancelled'
+  payments.commands.v1:
+    description: Одна durable-очередь с именем канала. Default exchange RabbitMQ.
+    publish:
+      operationId: sendPaymentCommand
+      message:
+        oneOf:
+          - $ref: '#/components/messages/ChargePayment'
+          - $ref: '#/components/messages/RefundPayment'
+  payments.events.v1:
+    description: Одна durable-очередь с именем канала. Default exchange RabbitMQ.
+    subscribe:
+      operationId: receivePaymentEvent
+      message:
+        oneOf:
+          - $ref: '#/components/messages/PaymentCharged'
+          - $ref: '#/components/messages/PaymentFailed'
+          - $ref: '#/components/messages/PaymentRefunded'
+components:
+  messages:
+    ReserveLeg:
+      name: ReserveLeg
+      messageId: ReserveLegV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/ReserveLegPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000001
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: ReserveLeg
+            data:
+              legId: 1
+              carrierId: train
+              tripId: train-01
+    CancelLeg:
+      name: CancelLeg
+      messageId: CancelLegV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/CancelLegPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000002
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad102
+            type: CancelLeg
+            data:
+              legId: 1
+              reserveOperationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+    ChargePayment:
+      name: ChargePayment
+      messageId: ChargePaymentV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/ChargePaymentPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000003
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: ChargePayment
+            data:
+              amountMinor: 1250000
+              currency: RUB
+    RefundPayment:
+      name: RefundPayment
+      messageId: RefundPaymentV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/RefundPaymentPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000004
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad102
+            type: RefundPayment
+            data:
+              chargeOperationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+    LegReserved:
+      name: LegReserved
+      messageId: LegReservedV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/LegReservedPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000005
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: LegReserved
+            data:
+              legId: 1
+              reservationId: train-reservation-01
+    LegReservationFailed:
+      name: LegReservationFailed
+      messageId: LegReservationFailedV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/LegReservationFailedPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000006
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: LegReservationFailed
+            data:
+              legId: 2
+              reason: SOLD_OUT
+    LegCancelled:
+      name: LegCancelled
+      messageId: LegCancelledV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/LegCancelledPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000007
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: LegCancelled
+            data:
+              legId: 1
+    PaymentCharged:
+      name: PaymentCharged
+      messageId: PaymentChargedV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/PaymentChargedPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000008
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: PaymentCharged
+            data:
+              amountMinor: 1250000
+              currency: RUB
+    PaymentFailed:
+      name: PaymentFailed
+      messageId: PaymentFailedV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/PaymentFailedPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000009
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: PaymentFailed
+            data:
+              reason: DECLINED
+    PaymentRefunded:
+      name: PaymentRefunded
+      messageId: PaymentRefundedV1
+      contentType: application/json
+      correlationId:
+        location: $message.payload#/bookingId
+      payload:
+        $ref: '#/components/schemas/PaymentRefundedPayload'
+      examples:
+        - name: standalone
+          summary: Отдельный пример, не часть общей трассы.
+          payload:
+            messageId: 794dbe84-6ad3-4d28-a9ea-000000000010
+            bookingId: 69367e73-7ac4-4bb5-8d44-621ac650fa30
+            operationId: 794dbe84-6ad3-4d28-a9ea-975751bad101
+            type: PaymentRefunded
+            data:
+              chargedMinor: 1250000
+              refundedMinor: 1250000
+              currency: RUB
+  schemas:
+    Envelope:
+      type: object
+      required:
+        - messageId
+        - bookingId
+        - operationId
+        - type
+        - data
+      properties:
+        messageId:
+          type: string
+          format: uuid
+        bookingId:
+          type: string
+          format: uuid
+        operationId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        data:
+          type: object
+    ReserveLegData:
+      type: object
+      required:
+        - legId
+        - carrierId
+        - tripId
+      properties:
+        legId:
+          type: integer
+          enum:
+            - 1
+            - 2
+        carrierId:
+          type: string
+          enum:
+            - train
+            - ferry
+        tripId:
+          type: string
+          minLength: 1
+    CancelLegData:
+      type: object
+      required:
+        - legId
+        - reserveOperationId
+      properties:
+        legId:
+          type: integer
+          enum:
+            - 1
+            - 2
+        reserveOperationId:
+          type: string
+          format: uuid
+    ChargePaymentData:
+      type: object
+      required:
+        - amountMinor
+        - currency
+      properties:
+        amountMinor:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    RefundPaymentData:
+      type: object
+      required:
+        - chargeOperationId
+      properties:
+        chargeOperationId:
+          type: string
+          format: uuid
+    LegReservedData:
+      type: object
+      required:
+        - legId
+        - reservationId
+      properties:
+        legId:
+          type: integer
+          enum:
+            - 1
+            - 2
+        reservationId:
+          type: string
+          minLength: 1
+    LegReservationFailedData:
+      type: object
+      required:
+        - legId
+        - reason
+      properties:
+        legId:
+          type: integer
+          enum:
+            - 1
+            - 2
+        reason:
+          type: string
+          enum:
+            - SOLD_OUT
+            - TRIP_NOT_FOUND
+            - CANCELLED
+    LegCancelledData:
+      type: object
+      required:
+        - legId
+      properties:
+        legId:
+          type: integer
+          enum:
+            - 1
+            - 2
+    PaymentChargedData:
+      type: object
+      required:
+        - amountMinor
+        - currency
+      properties:
+        amountMinor:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    PaymentFailedData:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - DECLINED
+            - CANCELLED
+    PaymentRefundedData:
+      type: object
+      required:
+        - chargedMinor
+        - refundedMinor
+        - currency
+      properties:
+        chargedMinor:
+          type: integer
+          minimum: 0
+          maximum: 100000000
+        refundedMinor:
+          type: integer
+          minimum: 0
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    ReserveLegPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - ReserveLeg
+            data:
+              $ref: '#/components/schemas/ReserveLegData'
+    CancelLegPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - CancelLeg
+            data:
+              $ref: '#/components/schemas/CancelLegData'
+    ChargePaymentPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - ChargePayment
+            data:
+              $ref: '#/components/schemas/ChargePaymentData'
+    RefundPaymentPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - RefundPayment
+            data:
+              $ref: '#/components/schemas/RefundPaymentData'
+    LegReservedPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - LegReserved
+            data:
+              $ref: '#/components/schemas/LegReservedData'
+    LegReservationFailedPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - LegReservationFailed
+            data:
+              $ref: '#/components/schemas/LegReservationFailedData'
+    LegCancelledPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - LegCancelled
+            data:
+              $ref: '#/components/schemas/LegCancelledData'
+    PaymentChargedPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - PaymentCharged
+            data:
+              $ref: '#/components/schemas/PaymentChargedData'
+    PaymentFailedPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - PaymentFailed
+            data:
+              $ref: '#/components/schemas/PaymentFailedData'
+    PaymentRefundedPayload:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          required:
+            - type
+            - data
+          properties:
+            type:
+              type: string
+              enum:
+                - PaymentRefunded
+            data:
+              $ref: '#/components/schemas/PaymentRefundedData'

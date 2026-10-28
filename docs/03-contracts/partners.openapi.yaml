@@ -1,0 +1,471 @@
+openapi: 3.1.0
+info:
+  title: Учебные симуляторы перевозчиков и платежей
+  version: 1.0.0
+  description: >-
+    Независимые HTTP-системы со своими хранилищами. Хранят operationId весь срок заказа. Бронь занимает место
+    атомарно и отменяется при срыве покупки. Возврат полный. Если исходная операция ещё не завершена,
+    отмена/возврат остаётся PENDING. Если её не было, отмена/возврат сохраняет запрет её последующего
+    выполнения. Возврат без списания возвращает нулевые суммы. Это проектный контракт симуляторов, не API
+    реального банка.
+paths:
+  /reservations:
+    servers:
+      - url: http://localhost:8091
+      - url: http://localhost:8092
+    post:
+      operationId: reserve
+      summary: Забронировать одно место
+      description: >-
+        operationId — ключ идемпотентности. Повтор с тем же телом возвращает ту же операцию без второго
+        эффекта.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+      responses:
+        '200':
+          description: Окончательный исход.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - operationId
+                      - status
+                      - result
+                    properties:
+                      operationId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        const: SUCCEEDED
+                      result:
+                        $ref: '#/components/schemas/Reserved'
+                  - $ref: '#/components/schemas/Failed'
+        '202':
+          description: Операция ещё выполняется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pending'
+        '400':
+          description: Невалидный запрос.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Тот же ID с другим содержимым.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Исход неизвестен; проверить или повторить с прежним ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /reservations/cancel:
+    servers:
+      - url: http://localhost:8091
+      - url: http://localhost:8092
+    post:
+      operationId: cancelReservation
+      summary: Отменить бронь
+      description: >-
+        operationId — ключ идемпотентности. Повтор с тем же телом возвращает ту же операцию без второго
+        эффекта.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Окончательный исход.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - operationId
+                      - status
+                      - result
+                    properties:
+                      operationId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        const: SUCCEEDED
+                      result:
+                        $ref: '#/components/schemas/Cancelled'
+        '202':
+          description: Операция ещё выполняется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pending'
+        '400':
+          description: Невалидный запрос.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Тот же ID с другим содержимым.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Исход неизвестен; проверить или повторить с прежним ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /charges:
+    servers:
+      - url: http://localhost:8093
+    post:
+      operationId: charge
+      summary: Списать полную сумму
+      description: >-
+        operationId — ключ идемпотентности. Повтор с тем же телом возвращает ту же операцию без второго
+        эффекта.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChargeRequest'
+      responses:
+        '200':
+          description: Окончательный исход.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - operationId
+                      - status
+                      - result
+                    properties:
+                      operationId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        const: SUCCEEDED
+                      result:
+                        $ref: '#/components/schemas/Charged'
+                  - $ref: '#/components/schemas/Failed'
+        '202':
+          description: Операция ещё выполняется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pending'
+        '400':
+          description: Невалидный запрос.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Тот же ID с другим содержимым.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Исход неизвестен; проверить или повторить с прежним ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /refunds:
+    servers:
+      - url: http://localhost:8093
+    post:
+      operationId: refund
+      summary: Полностью вернуть списание
+      description: >-
+        operationId — ключ идемпотентности. Повтор с тем же телом возвращает ту же операцию без второго
+        эффекта.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: Окончательный исход.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required:
+                      - operationId
+                      - status
+                      - result
+                    properties:
+                      operationId:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        const: SUCCEEDED
+                      result:
+                        $ref: '#/components/schemas/Refunded'
+        '202':
+          description: Операция ещё выполняется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pending'
+        '400':
+          description: Невалидный запрос.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Тот же ID с другим содержимым.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Исход неизвестен; проверить или повторить с прежним ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /operations/{operationId}:
+    servers:
+      - url: http://localhost:8091
+      - url: http://localhost:8092
+      - url: http://localhost:8093
+    get:
+      operationId: getOperation
+      summary: Узнать результат операции
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Сохранённый результат операции.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '404':
+          description: Операция пока не найдена; допустим повтор исходного запроса с тем же ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: Временно недоступно.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    ReserveRequest:
+      type: object
+      required:
+        - operationId
+        - tripId
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          minLength: 1
+    CancelRequest:
+      type: object
+      required:
+        - operationId
+        - reserveOperationId
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        reserveOperationId:
+          type: string
+          format: uuid
+    ChargeRequest:
+      type: object
+      required:
+        - operationId
+        - amountMinor
+        - currency
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        amountMinor:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    RefundRequest:
+      type: object
+      required:
+        - operationId
+        - chargeOperationId
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        chargeOperationId:
+          type: string
+          format: uuid
+    Reserved:
+      type: object
+      required:
+        - kind
+        - reservationId
+      properties:
+        kind:
+          type: string
+          const: RESERVED
+        reservationId:
+          type: string
+    Cancelled:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          const: CANCELLED
+    Charged:
+      type: object
+      required:
+        - kind
+        - amountMinor
+        - currency
+      properties:
+        kind:
+          type: string
+          const: CHARGED
+        amountMinor:
+          type: integer
+          minimum: 1
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    Refunded:
+      type: object
+      required:
+        - kind
+        - chargedMinor
+        - refundedMinor
+        - currency
+      properties:
+        kind:
+          type: string
+          const: REFUNDED
+        chargedMinor:
+          type: integer
+          minimum: 0
+          maximum: 100000000
+        refundedMinor:
+          type: integer
+          minimum: 0
+          maximum: 100000000
+        currency:
+          type: string
+          enum:
+            - RUB
+    Pending:
+      type: object
+      required:
+        - operationId
+        - status
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: PENDING
+    Failed:
+      type: object
+      required:
+        - operationId
+        - status
+        - reason
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: FAILED
+        reason:
+          type: string
+          enum:
+            - SOLD_OUT
+            - TRIP_NOT_FOUND
+            - DECLINED
+            - CANCELLED
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    Succeeded:
+      type: object
+      required:
+        - operationId
+        - status
+        - result
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          const: SUCCEEDED
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/Reserved'
+            - $ref: '#/components/schemas/Cancelled'
+            - $ref: '#/components/schemas/Charged'
+            - $ref: '#/components/schemas/Refunded'
+    Operation:
+      oneOf:
+        - $ref: '#/components/schemas/Pending'
+        - $ref: '#/components/schemas/Succeeded'
+        - $ref: '#/components/schemas/Failed'
